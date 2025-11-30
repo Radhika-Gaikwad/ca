@@ -7,7 +7,7 @@ dotenv.config();
 const app = express();
 
 const corsOptions = {
-  origin: ['http://localhost:5173'], // 👈 React dev server
+  origin: ['https://ca-plans.onrender.com'], // 👈 React dev server
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   credentials: true,
 };
