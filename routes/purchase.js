@@ -150,5 +150,95 @@ router.get('/all-purchases', authenticate, authorizeRoles('ca', 'admin'), async 
   }
 });
 
+const Stripe = require("stripe");
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+router.post('/pay-with-stripe', authenticate, async (req, res) => {
+  try {
+    const { purchaseId } = req.body;
+
+    const purchase = await Purchase.findById(purchaseId);
+    if (!purchase) {
+      return res.status(404).json({ message: "Purchase not found" });
+    }
+
+    const plan = purchase.planSnapshot;
+
+    const amount =
+      plan.discountPrice && plan.discountPrice > 0
+        ? plan.discountPrice
+        : plan.price;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ message: "Invalid plan amount" });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      customer_email: purchase.email,
+      line_items: [
+        {
+          price_data: {
+            currency: "inr",
+            product_data: {
+              name: plan.title || "Plan Purchase",
+            },
+            unit_amount: Math.round(amount * 100),
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.CLIENT_ORIGIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_ORIGIN}/payment-cancel`,
+      metadata: {
+        purchaseId: purchase._id.toString(),
+      },
+    });
+
+    // ✅ Correct place
+    purchase.stripeSessionId = session.id;
+    purchase.paymentMethod = "stripe";
+    await purchase.save();
+
+    res.json({ url: session.url });
+
+  } catch (err) {
+    console.error("Stripe Error:", err);
+    res.status(500).json({ message: "Stripe error" });
+  }
+});
+
+router.post('/stripe-webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+  const sig = req.headers['stripe-signature'];
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(
+      req.body,
+      sig,
+      process.env.STRIPE_WEBHOOK_SECRET
+    );
+  } catch (err) {
+    console.log("Webhook Error:", err.message);
+    return res.sendStatus(400);
+  }
+
+  if (event.type === 'checkout.session.completed') {
+    const session = event.data.object;
+
+    const purchaseId = session.metadata.purchaseId;
+
+    const purchase = await Purchase.findById(purchaseId);
+
+    if (purchase && purchase.paymentStatus !== 'confirmed') {
+      purchase.paymentStatus = 'confirmed';
+      await purchase.save();
+    }
+  }
+
+  res.json({ received: true });
+});
 module.exports = router;

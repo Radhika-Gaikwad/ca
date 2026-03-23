@@ -6,13 +6,18 @@ const dotenv = require('dotenv');
 dotenv.config();
 const app = express();
 
-const corsOptions = {
-  origin: ['https://ca-plans.onrender.com'], // 👈 React dev server
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  credentials: true,
-};
+// const corsOptions = {
+//   origin: ['https://ca-plans.onrender.com'], // 👈 React dev server
+//   methods: ['GET', 'POST', 'PUT', 'DELETE'],
+//   credentials: true,
+// };
 
-app.use(cors(corsOptions));
+app.use(cors({
+  origin: (origin, callback) => {
+    callback(null, true); // allow all
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // routes

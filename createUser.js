@@ -1,46 +1,40 @@
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const bcrypt = require('bcrypt');
-const User = require('./models/User'); // adjust path if needed
+const User = require('../models/User');
 
 dotenv.config();
 
-async function createUser() {
+async function main() {
   try {
-    await mongoose.connect(process.env.MONGO_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGO_URI);
 
     const email = 'ca@example.com';
-    const plainPassword = 'Password123!';
+    const passwordPlain = 'Password123!';
 
-    // prevent duplicates
     const existing = await User.findOne({ email });
     if (existing) {
-      console.log(`User already exists: ${email}`);
-      return process.exit(0);
+      console.log('CA user already exists:', email);
+      process.exit(0);
     }
 
-    // hash password
-    const hashedPassword = await bcrypt.hash(plainPassword, 10);
+    const hashed = await bcrypt.hash(passwordPlain, 10);
 
     const user = await User.create({
-      name: 'Manual CA',
+      name: 'Default CA',
       email,
-      password: hashedPassword,
-      role: 'ca',
+      password: hashed,
+      role: 'ca'
     });
 
-    console.log('User created successfully:', user);
-    console.log('Use these credentials to log in:');
-    console.log({ email, password: plainPassword });
+    console.log('Created CA user:');
+    console.log({ email, password: passwordPlain });
 
     process.exit(0);
   } catch (err) {
-    console.error('Error creating user:', err);
+    console.error('Error:', err);
     process.exit(1);
   }
 }
 
-createUser();
+main();

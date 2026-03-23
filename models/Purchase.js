@@ -53,6 +53,12 @@ const purchaseSchema = new mongoose.Schema({
     enum: ['pending', 'confirmed', 'failed'],
     default: 'pending'
   },
+stripeSessionId: String,
+paymentMethod: {
+  type: String,
+  enum: ['manual', 'stripe'],
+  default: 'manual'
+},
 
   paymentProofUrl: String,
 
